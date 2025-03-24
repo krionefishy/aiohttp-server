@@ -1,6 +1,6 @@
 import typing
 from dataclasses import dataclass
-
+from datetime import datetime
 import yaml
 
 if typing.TYPE_CHECKING:
@@ -9,7 +9,7 @@ if typing.TYPE_CHECKING:
 
 @dataclass
 class SessionConfig:
-    pass
+    key: str
 
 
 @dataclass
@@ -36,19 +36,6 @@ def setup_config(app: "Application", config_path: str):
     with open(config_path, "r") as f:
         raw_config = yaml.safe_load(f)
 
-    """app.config = Config(
-        admin=AdminConfig(
-            email=raw_config["admin"]["email"],
-            password=raw_config["admin"]["password"],
-        ),
-        session=SessionConfig(
-            key=raw_config["session"]["key"],
-        ),
-        bot=BotConfig(
-            token=raw_config["bot"]["token"],
-            group_id=raw_config["bot"]["group_id"],
-        ),
-    )"""
 
     app.config = Config(
         admin=AdminConfig(
@@ -56,4 +43,8 @@ def setup_config(app: "Application", config_path: str):
             email=raw_config["admin"]["email"],
             password=raw_config["admin"]["password"],
         ),
+        session=SessionConfig(
+            key=raw_config["session"]["key"],
+        )
     )
+    

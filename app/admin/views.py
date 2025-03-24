@@ -1,17 +1,13 @@
 from app.web.app import View
-from app.admin.models import Admin
 from app.web.utils import error_json_response, json_response
-from app.store.admin.accessor import AdminAccessor
-from app.admin.schemes import AdminSchema
-from aiohttp_apispec import docs, response_schema, request_schema
+from aiohttp_apispec import docs, response_schema
 from app.web.schemes import OkResponseSchema
-from app.store.admin.accessor import AdminAccessor
+
 import bcrypt
 import uuid
 from app.web.utils import auth_required
 from datetime import datetime, timedelta
-import json
-from aiohttp.web_exceptions import HTTPBadRequest
+
 
 
 class AdminLoginView(View):
@@ -72,7 +68,6 @@ class AdminCurrentView(View):
         responses={
             200: {"description": "успешно получили админа"},
             401: {"description": "нет cookie"},
-            403: {"description": "невалидные cookie"}
         }
     )
     @response_schema(OkResponseSchema, 200)
