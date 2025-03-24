@@ -18,4 +18,4 @@ class Poller:
         raise NotImplementedError
 
     async def poll(self) -> None:
-        raise NotImplementedError
+        self.poll_task.cancel()

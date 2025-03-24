@@ -40,7 +40,6 @@ class TestAdminLoginView:
             "message": "Unprocessable Entity",
             "data": {"json": {"email": ["Missing data for required field."]}},
         }
-
     async def test_forbidden_when_not_valid_credentials(
         self, cli: TestClient
     ) -> None:
