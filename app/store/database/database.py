@@ -8,8 +8,8 @@ from datetime import datetime, timedelta
 
 @dataclass 
 class Cookie:
-    sessionId: str
-    adminId: int
+    session_id: str
+    admin_id: int
     expires_at: datetime
 
 
@@ -43,8 +43,8 @@ class CookieStorage:
     
     async def create_session(self, adminId: int, session_id: str):
         cookie = Cookie(
-            sessionId=session_id,
-            adminId=adminId,
+            session_id=session_id,
+            admin_id=adminId,
             expires_at=datetime.now() + timedelta(days=1)
         )
         self.sessions.append(cookie)
@@ -58,4 +58,7 @@ class CookieStorage:
                 return False
         return False 
     
+
+    async def list_cookies_debug(self) -> list[Cookie]:
+        return self.sessions
     

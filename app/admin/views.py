@@ -8,7 +8,7 @@ from app.web.schemes import OkResponseSchema
 from app.store.admin.accessor import AdminAccessor
 import bcrypt
 import uuid
-from app.web.utils import auth_required, validate_request
+from app.web.utils import auth_required
 from datetime import datetime, timedelta
 import json
 from aiohttp.web_exceptions import HTTPBadRequest
@@ -17,23 +17,20 @@ from aiohttp.web_exceptions import HTTPBadRequest
 class AdminLoginView(View):
     @response_schema(OkResponseSchema, 200)
     async def post(self):
-        try:
             data = await self.request.json()
             
-            # Проверка обязательных полей
             if 'email' not in data or 'password' not in data:
                 missing = []
                 if 'email' not in data: missing.append('email')
                 if 'password' not in data: missing.append('password')
-                raise HTTPBadRequest(
-                    text=json.dumps({
-                        "status": "bad_request",
-                        "message": f"Missing required fields: {', '.join(missing)}",
-                        "data": {"missing_fields": missing}
-                    }),
-                    content_type="application/json"
+                return error_json_response(
+                    http_status=400,
+                    status="bad_request",
+                    message="Unprocessable Entity",
+                    data={"json": {field: ["Missing data for required field."] for field in missing}}
                 )
-            
+
+
             email = data['email']
             password = data['password']
             
@@ -53,24 +50,19 @@ class AdminLoginView(View):
                 )
             
             session_id = str(uuid.uuid4())
-            await self.request.app["CookieStorage"].create_session(current.id, session_id)
-
+            await self.request.app.cookie_storage.create_session(current.id, session_id)
+            """ls = await self.request.app.cookie_storage.list_cookies_debug()
+            print(ls)"""
             resp = json_response(
                 data={"id": current.id, "email": current.email}
             )
-            resp.set_cookie("session_id", session_id, expires=datetime.now() + timedelta(days=1))
+            resp.set_cookie(
+                 "session_id", 
+                 session_id, 
+                 expires=datetime.now() + timedelta(days=1)
+                 )
             return resp
             
-        except json.JSONDecodeError:
-            raise HTTPBadRequest(
-                text=json.dumps({
-                    "status": "bad_request",
-                    "message": "Invalid JSON format",
-                    "data": {}
-                }),
-                content_type="application/json"
-            )
-
 
 class AdminCurrentView(View):
     @docs(
@@ -84,13 +76,12 @@ class AdminCurrentView(View):
         }
     )
     @response_schema(OkResponseSchema, 200)
-    @auth_required
     async def get(self):
         admin = {
             "id": self.request.admin.id,
             "email": self.request.admin.email
         }
-
+        
         resp = json_response(
             data=admin
         )

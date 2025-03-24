@@ -1,11 +1,18 @@
 from app.base.base_accessor import BaseAccessor
 from app.quiz.models import Answer, Question, Theme
-
-
+from aiohttp.web_exceptions import HTTPConflict
+import json
 class QuizAccessor(BaseAccessor):
     async def create_theme(self, title: str) -> Theme:
         if await self.get_theme_by_title(title):
-            raise ValueError("Theme already exists")
+            raise HTTPConflict(
+                    reason="Theme already exists",
+                    text=json.dumps({
+                        "status": "conflict",
+                        "message": "Theme already exists",
+                        "data": {}
+                    })
+            )
         theme = Theme(id=self.app.database.next_theme_id, title=title)
         self.app.database.themes.append(theme)
         return theme

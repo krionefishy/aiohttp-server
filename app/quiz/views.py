@@ -19,43 +19,22 @@ class ThemeAddView(View):
     )
     @response_schema(OkResponseSchema, 200)
     async def post(self):
-        try:
             data = await self.request.json()
 
             if not isinstance(data, dict) or 'title' not in data or not isinstance(data['title'], str) or not data['title'].strip():
                 raise HTTPBadRequest(
+                    reason="Unprocessable Entity",
                     text=json.dumps({
-                        "status": "bad_request",
-                        "message": "Missing required field: title",
-                        "data": {"missing_fields": ["title"]}
-                    }),
-                    content_type="application/json"
+                        "json": {"title": ["Missing data for required field."]}
+                    })
                 )
 
-            title = data['title'].strip()
+            title = data['title']
+            
 
-            if await self.store.quizzes.get_theme_by_title(title):
-                raise HTTPConflict(
-                    text=json.dumps({
-                        "status": "conflict",
-                        "message": "Theme already exists",
-                        "data": {}
-                    }),
-                    content_type="application/json"
-                )
-
-            theme = await self.store.quizzes.create_theme(title=title)
+            theme = await self.request.app.store.quizzes.create_theme(title=title)
             return json_response(data={"id": theme.id, "title": theme.title})
 
-        except json.JSONDecodeError:
-            raise HTTPBadRequest(
-                text=json.dumps({
-                    "status": "bad_request",
-                    "message": "Invalid JSON format",
-                    "data": {}
-                }),
-                content_type="application/json"
-            )
 
 
 class ThemeListView(View):
@@ -97,7 +76,6 @@ class QuestionAddView(View):
     ) 
     @response_schema(OkResponseSchema, 200)
     async def post(self):
-        try:
             data = await self.request.json()
             
             required_fields = ['title', 'theme_id', 'answers']
@@ -179,15 +157,6 @@ class QuestionAddView(View):
                 "answers": question.answers
             })
             
-        except json.JSONDecodeError:
-            raise HTTPBadRequest(
-                text=json.dumps({
-                    "status": "bad_request",
-                    "message": "Invalid JSON format",
-                    "data": {}
-                }),
-                content_type="application/json"
-            )
 
 class QuestionListView(View):
     @docs(tags=["quiz"])

@@ -3,8 +3,6 @@ from aiohttp.web import (
     Request as AiohttpRequest,
     View as AiohttpView,
 )
-from typing import Callable, Any
-from functools import wraps
 from app.admin.models import Admin
 from app.store import Store, setup_store
 from app.store.database.database import Database
@@ -21,7 +19,7 @@ class Application(AiohttpApplication):
     config: Config | None = None
     store: Store | None = None
     database: Database = Database()
-
+    cookie_storage: CookieStorage = CookieStorage()
 
 class Request(AiohttpRequest):
     admin: Admin | None = None
@@ -50,8 +48,7 @@ app = Application()
 
 def setup_app(config_path: str) -> Application:
     app.database = Database()
-    
-    app["CookieStorage"] = CookieStorage()
+    app.cookie_storage = CookieStorage()
     setup_logging(app)
     setup_config(app, config_path)
     setup_aiohttp_apispec(app, title='pupupu Application', swagger_path='/docs')
