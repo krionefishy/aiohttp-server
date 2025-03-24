@@ -5,7 +5,6 @@ class ThemeSchema(Schema):
     id = fields.Int(dump_only=True)
     title = fields.Str(
         required=True,
-        validate=validate.Length(min=1, max=100)
     )
 
 
@@ -20,12 +19,10 @@ class QuestionSchema(Schema):
     theme_id = fields.Int(required=True)
     title = fields.Str(
         required=True,
-        validate=validate.Length(min=5, max=200)
     )
     answers = fields.List(
         fields.Nested(AnswerSchema),
         required=True,
-        validate=validate.Length(min=2) 
     )
 
 
