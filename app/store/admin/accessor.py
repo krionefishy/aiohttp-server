@@ -51,3 +51,9 @@ class AdminAccessor(BaseAccessor):
         self.app.database.admins.append(admin)
 
         return admin
+
+    async def get_by_id(self, id: int) -> Admin | None:
+        for admin in self.app.database.admins:
+            if admin.id == id:
+                return admin
+        return None

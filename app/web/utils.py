@@ -31,7 +31,7 @@ def error_json_response(
         status=http_status
     )
 
-def auth_required(handler):
+"""def auth_required(handler):
     @wraps(handler)
     async def wrapper(self, *args, **kwargs):
         session_id = self.request.cookies.get("session_id")
@@ -52,4 +52,4 @@ def auth_required(handler):
         return await handler(self, *args, **kwargs)
     return wrapper
 
-
+"""

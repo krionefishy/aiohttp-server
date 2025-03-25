@@ -11,15 +11,15 @@ from app.web.logger import setup_logging
 from app.web.middlewares import setup_middlewares
 from app.web.routes import setup_routes
 from aiohttp_apispec import setup_aiohttp_apispec
-from app.store.database.database import CookieStorage
-
-
+from aiohttp_session import setup as setup_session
+from aiohttp_session.cookie_storage import EncryptedCookieStorage
+from cryptography import fernet
+import base64
 
 class Application(AiohttpApplication):
     config: Config | None = None
     store: Store | None = None
     database: Database = Database()
-    cookie_storage: CookieStorage = CookieStorage()
 
 class Request(AiohttpRequest):
     admin: Admin | None = None
@@ -43,16 +43,33 @@ class View(AiohttpView):
         return self.request.get("data", {})
 
 
-app = Application()
+
 
 
 def setup_app(config_path: str) -> Application:
-    app.database = Database()
-    app.cookie_storage = CookieStorage()
+    app = Application()
+    
+
     setup_logging(app)
     setup_config(app, config_path)
+    app.database = Database()
+    fernet_key = fernet.Fernet.generate_key()
+    secret_key = base64.urlsafe_b64decode(fernet_key)
+    setup_session(
+        app,
+        EncryptedCookieStorage(
+            secret_key,
+            cookie_name=app.config.session.cookie_name,
+            max_age=app.config.session.lifetime,
+            httponly=app.config.session.http_only,
+            secure=app.config.session.secure
+        )
+    )
+    
+
     setup_aiohttp_apispec(app, title='pupupu Application', swagger_path='/docs')
-    setup_routes(app)  
-    setup_middlewares(app)
     setup_store(app)
+    setup_middlewares(app)
+    setup_routes(app)
+    
     return app

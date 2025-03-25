@@ -37,7 +37,7 @@ class Database:
         self.questions.clear()
         self.admins.clear() 
 
-class CookieStorage:
+"""class CookieStorage:
     def __init__(self):
         self.sessions: list[Cookie] = []
     
@@ -60,5 +60,5 @@ class CookieStorage:
     
 
     async def list_cookies_debug(self) -> list[Cookie]:
-        return self.sessions
+        return self.sessions"""
     

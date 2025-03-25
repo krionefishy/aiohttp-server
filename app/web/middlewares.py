@@ -4,7 +4,7 @@ import typing
 from aiohttp.web_exceptions import HTTPUnprocessableEntity, HTTPException, HTTPUnauthorized
 from aiohttp.web_middlewares import middleware
 from aiohttp_apispec import validation_middleware
-
+from aiohttp_session import get_session
 from app.web.utils import error_json_response
 import logging
 logging.basicConfig(level=logging.INFO)
@@ -58,35 +58,44 @@ async def error_handling_middleware(request: "Request", handler):
             data={}
         )
     
-"""@middleware
-async def auth_middleware(request: "Request", handler):
-    PUBLIC_PATHS = ["/admin.login"]
-
-    if request.path in PUBLIC_PATHS:
+@middleware
+async def auth_middleware(request, handler):
+    if request.path in ['/admin.login', '/login']:
         return await handler(request)
-
-    session_id = request.cookies.get("session_id")
-    if not session_id:
-        raise HTTPUnauthorized(
-            text=json.dumps({
-                "status": "unauthorized",
-                "message": "Session cookie is required"
-            }),
-            content_type="application/json"
-        )
-    if not await request.app.cookie_storage.is_valid_cookie(session_id):
-        raise HTTPUnauthorized(
-            text=json.dumps({
-                "status": "unauthorized",
-                "message": "Invalid session"
-            }),
-            content_type="application/json"
-        )
-
-    return await handler(request)"""
+    
+    try:
+        session = await get_session(request)
+        admin_id = session.get('admin_id')
+        
+        if not admin_id:
+            raise HTTPUnauthorized(
+                text=json.dumps({
+                    "status": "unauthorized",
+                    "message": "Authentication required"
+                }),
+                content_type="application/json"
+            )
+            
+        admin = await request.app.store.admins.get_by_id(admin_id)
+        if not admin:
+            raise HTTPUnauthorized(
+                text=json.dumps({
+                    "status": "unauthorized",
+                    "message": "Invalid credentials"
+                }),
+                content_type="application/json"
+            )
+            
+        request.admin = admin
+        return await handler(request)
+        
+    except HTTPException as e:
+        if not hasattr(e, 'content_type') or e.content_type != 'application/json':
+            e.content_type = 'application/json'
+        raise
 
 
 def setup_middlewares(app: "Application"):
-    #app.middlewares.append(auth_middleware)
+    app.middlewares.append(auth_middleware)
     app.middlewares.append(error_handling_middleware)
     app.middlewares.append(validation_middleware)

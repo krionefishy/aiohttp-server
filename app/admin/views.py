@@ -4,10 +4,8 @@ from aiohttp_apispec import docs, response_schema
 from app.web.schemes import OkResponseSchema
 
 import bcrypt
-import uuid
-from app.web.utils import auth_required
-from datetime import datetime, timedelta
 
+from aiohttp_session import new_session
 
 
 class AdminLoginView(View):
@@ -45,18 +43,15 @@ class AdminLoginView(View):
                     message="Invalid credentials",
                 )
             
-            session_id = str(uuid.uuid4())
-            await self.request.app.cookie_storage.create_session(current.id, session_id)
-            """ls = await self.request.app.cookie_storage.list_cookies_debug()
-            print(ls)"""
+            session = await new_session(request=self.request)
+            session['admin_id'] = current.id
+            session.max_age = self.request.app.config.session.lifetime
+
+            
             resp = json_response(
                 data={"id": current.id, "email": current.email}
             )
-            resp.set_cookie(
-                 "session_id", 
-                 session_id, 
-                 expires=datetime.now() + timedelta(days=1)
-                 )
+            
             return resp
             
 

@@ -10,7 +10,11 @@ if typing.TYPE_CHECKING:
 @dataclass
 class SessionConfig:
     key: str
-
+    lifetime: int = 24*3600
+    cookie_name: str = "session_id"
+    http_only: bool = True
+    secure: bool = False
+    
 
 @dataclass
 class AdminConfig:
@@ -45,6 +49,10 @@ def setup_config(app: "Application", config_path: str):
         ),
         session=SessionConfig(
             key=raw_config["session"]["key"],
+            lifetime=raw_config["session"].get("lifetime", 86400),  # 1 день по умолчанию
+            cookie_name=raw_config["session"].get("cookie_name", "session_id"),
+            http_only=raw_config["session"].get("http_only", True),
+            secure=raw_config["session"].get("secure", False)
         )
     )
     

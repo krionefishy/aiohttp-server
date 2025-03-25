@@ -1,6 +1,6 @@
 from app.quiz.schemes import ThemeSchema, QuestionSchema, QuestionListResponseSchema
 from app.web.app import View
-from app.web.utils import json_response, auth_required
+from app.web.utils import json_response
 from aiohttp_apispec import request_schema, response_schema, docs
 from app.web.schemes import OkResponseSchema
 from aiohttp.web_exceptions import HTTPConflict, HTTPBadRequest, HTTPNotFound
