@@ -19,7 +19,8 @@ import base64
 class Application(AiohttpApplication):
     config: Config | None = None
     store: Store | None = None
-    database: Database = Database()
+    database: Database  
+
 
 class Request(AiohttpRequest):
     admin: Admin | None = None
@@ -43,16 +44,24 @@ class View(AiohttpView):
         return self.request.get("data", {})
 
 
+async def on_startup(app: Application):
+    await app.database.connect()
 
+
+async def on_shutdown(app: Application):
+    await app.database.disconnect()
 
 
 def setup_app(config_path: str) -> Application:
     app = Application()
-    
-
     setup_logging(app)
     setup_config(app, config_path)
-    app.database = Database()
+    app.database = Database(app)
+
+
+    app.on_startup.append(on_startup)
+    app.on_shutdown.append(on_shutdown)
+
     fernet_key = fernet.Fernet.generate_key()
     secret_key = base64.urlsafe_b64decode(fernet_key)
     setup_session(
@@ -66,7 +75,6 @@ def setup_app(config_path: str) -> Application:
         )
     )
     
-
     setup_aiohttp_apispec(app, title='pupupu Application', swagger_path='/docs')
     setup_store(app)
     setup_middlewares(app)

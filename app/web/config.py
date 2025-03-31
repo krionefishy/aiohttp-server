@@ -6,6 +6,18 @@ import yaml
 if typing.TYPE_CHECKING:
     from app.web.app import Application
 
+@dataclass
+class DatabaseConfig:
+    host: str
+    port: int
+    user: str
+    password: str
+    database: str
+
+    @property
+    def url(self) -> str:
+        return f"postgresql+asyncpg://{self.user}:{self.password}@{self.host}:{self.port}/{self.database}"
+
 
 @dataclass
 class SessionConfig:
@@ -25,12 +37,14 @@ class AdminConfig:
 
 @dataclass
 class BotConfig:
-    pass
+    token: str
+    group_id: int
 
 
 @dataclass
 class Config:
     admin: AdminConfig
+    database: DatabaseConfig
     session: SessionConfig | None = None
     bot: BotConfig | None = None
 
@@ -47,12 +61,23 @@ def setup_config(app: "Application", config_path: str):
             email=raw_config["admin"]["email"],
             password=raw_config["admin"]["password"],
         ),
+        database=DatabaseConfig(
+            host=raw_config["database"]["host"],
+            port=raw_config["database"]["port"],
+            user=raw_config["database"]["user"],
+            password=raw_config["database"]["password"],
+            database=raw_config["database"]["database"],
+        ),
         session=SessionConfig(
             key=raw_config["session"]["key"],
-            lifetime=raw_config["session"].get("lifetime", 86400),  # 1 день по умолчанию
+            lifetime=raw_config["session"].get("lifetime", 86400), 
             cookie_name=raw_config["session"].get("cookie_name", "session_id"),
             http_only=raw_config["session"].get("http_only", True),
             secure=raw_config["session"].get("secure", False)
+        ),
+        bot=BotConfig(
+            token=raw_config["bot"]["token"],
+            group_id=raw_config["bot"]["group_id"]
         )
     )
     

@@ -1,26 +1,31 @@
-from app.quiz.schemes import ThemeSchema, QuestionSchema, QuestionListResponseSchema
+from aiohttp.web import json_response
+from aiohttp_apispec import docs, response_schema
+from aiohttp.web_exceptions import HTTPConflict, HTTPBadRequest, HTTPNotFound
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
+import json
+
+from app.quiz.schemes import (
+    QuestionListResponseSchema,
+    ThemeListResponseSchema
+)
 from app.web.app import View
 from app.web.utils import json_response
-from aiohttp_apispec import request_schema, response_schema, docs
 from app.web.schemes import OkResponseSchema
-from aiohttp.web_exceptions import HTTPConflict, HTTPBadRequest, HTTPNotFound
-import json
+from app.quiz.models import AnswerModel
+
 class ThemeAddView(View):
     @docs(
         tags=["quiz"],
         summary="Add theme",
         description="Add new quiz theme",
-        responses={
-            200: {"description": "Theme added successfully"},
-            400: {"description": "Invalid data"},
-            401: {"description": "Unauthorized"},
-            409: {"description": "Theme already exists"}
-        }
     )
     @response_schema(OkResponseSchema, 200)
     async def post(self):
+        try:
             data = await self.request.json()
-
+            
             if not isinstance(data, dict) or 'title' not in data or not isinstance(data['title'], str) or not data['title'].strip():
                 raise HTTPBadRequest(
                     reason="Unprocessable Entity",
@@ -34,57 +39,59 @@ class ThemeAddView(View):
 
             theme = await self.request.app.store.quizzes.create_theme(title=title)
             return json_response(data={"id": theme.id, "title": theme.title})
-
+            
+        except IntegrityError:
+            raise HTTPConflict(
+                reason="Theme already exists",
+                text=json.dumps({
+                    "status": "conflict",
+                    "message": "Theme already exists",
+                    "data": {}
+                })
+            )
+        except json.JSONDecodeError:
+            raise HTTPBadRequest(
+                reason="Invalid JSON",
+                text=json.dumps({
+                    "status": "bad_request",
+                    "message": "Invalid JSON data",
+                    "data": {}
+                })
+            )
 
 
 class ThemeListView(View):
     @docs(
-        tags=["admin"],
-        summary="current admin",
-        description="Получение текущего админа",
-        responses={
-            200: {"description": "успешно получили тему"},
-            401: {"description": "нет cookie"},
-            403: {"description": "невалидные данные"},
-            409: {"description": "тема уже существует"}
-        }
+        tags=["quiz"],
+        summary="List themes",
+        description="Get all quiz themes",
     )
-    @response_schema(OkResponseSchema, 200)
+    @response_schema(ThemeListResponseSchema, 200)
     async def get(self):
-        themes = await self.request.app.store.quizzes.list_themes()
-        data = []
-        for i in themes:
-            data.append({"id": i.id, "title": i.title})
-        resp = json_response(
-            data= { 
-                "themes": data,
-            }
-        )
-        return resp
+        themes = await self.store.quizzes.list_themes()
+        return json_response(data={
+            "themes": [{"id": t.id, "title": t.title} for t in themes]
+        })
 
 
 class QuestionAddView(View):
     @docs(
-        tags=["admin"],
-        summary="current admin",
-        responses={
-            200: {"description": "успешно получили тему"},
-            401: {"description": "нет cookie"},
-            403: {"description": "невалидные данные"},
-            409: {"description": "тема уже существует"}
-        }
-    ) 
+        tags=["quiz"],
+        summary="Add question",
+        description="Add new quiz question",
+    )
     @response_schema(OkResponseSchema, 200)
     async def post(self):
+        try:
             data = await self.request.json()
             
+            
             required_fields = ['title', 'theme_id', 'answers']
-            missing = [field for field in required_fields if field not in data]
-            if missing:
+            if missing := [field for field in required_fields if field not in data]:
                 raise HTTPBadRequest(
                     text=json.dumps({
                         "status": "bad_request",
-                        "json": f"Missing required fields: {', '.join(missing)}",
+                        "message": f"Missing required fields: {', '.join(missing)}",
                         "data": {"missing_fields": missing}
                     }),
                     content_type="application/json"
@@ -94,72 +101,73 @@ class QuestionAddView(View):
             theme_id = data['theme_id']
             answers = data['answers']
             
+            store = self.request.app.store
+            try:
+                await store.quizzes.get_theme_by_id(theme_id) 
+            except HTTPNotFound:
+                raise HTTPNotFound(reason=f"Theme with id {theme_id} not found")
             if not isinstance(answers, list) or len(answers) < 2:
                 raise HTTPBadRequest(
                     text=json.dumps({
                         "status": "bad_request",
-                        "json": "Unprocessable Entity",
+                        "message": "At least two answers required",
                         "data": {}
                     }),
                     content_type="application/json"
                 )
             
             correct_answers = sum(1 for a in answers if a.get('is_correct', False))
-            if correct_answers == 0:
+            if correct_answers != 1:
                 raise HTTPBadRequest(
                     text=json.dumps({
                         "status": "bad_request",
-                        "message": "At least one correct answer required",
-                        "data": {}
-                    }),
-                    content_type="application/json"
-                )
-            if correct_answers > 1:
-                raise HTTPBadRequest(
-                    text=json.dumps({
-                        "status": "bad_request",
-                        "message": "Only one correct answer allowed",
+                        "message": "Exactly one correct answer required",
                         "data": {}
                     }),
                     content_type="application/json"
                 )
             
-            if not await self.store.quizzes.get_theme_by_id(theme_id):
-                raise HTTPNotFound(
-                    text=json.dumps({
-                        "status": "not_found",
-                        "message": "Theme not found",
-                        "data": {}
-                    }),
-                    content_type="application/json"
-                )
-            
-            if await self.store.quizzes.get_question_by_title(title):
-                raise HTTPConflict(
-                    text=json.dumps({
-                        "status": "conflict",
-                        "message": "Question already exists",
-                        "data": {}
-                    }),
-                    content_type="application/json"
-                )
+
+            answer_models = [
+                AnswerModel(title=a["title"], is_correct=a["is_correct"])
+                for a in answers
+            ]
             
             question = await self.store.quizzes.create_question(
-                title=title,
-                theme_id=theme_id,
-                answers=answers
+                title=data['title'].strip(),
+                theme_id=data['theme_id'],
+                answers=answer_models
             )
+        
             
             return json_response(data={
                 "id": question.id,
                 "title": question.title,
                 "theme_id": question.theme_id,
-                "answers": question.answers
+                "answers": [
+                    {"title": a.title, "is_correct": a.is_correct}
+                    for a in question.answers  
+                ]
             })
             
+        
+        except json.JSONDecodeError:
+            raise HTTPBadRequest(
+                text=json.dumps({
+                    "status": "bad_request",
+                    "message": "Invalid JSON data",
+                    "data": {}
+                }),
+                content_type="application/json"
+            )
+        
 
 class QuestionListView(View):
-    @docs(tags=["quiz"])
+    @docs(
+        tags=["quiz"],
+        summary="List questions",
+        description="Get quiz questions",
+    )
     @response_schema(QuestionListResponseSchema, 200)
     async def get(self):
         theme_id = self.request.query.get("theme_id")
@@ -168,9 +176,23 @@ class QuestionListView(View):
             try:
                 theme_id = int(theme_id)
                 if not await self.store.quizzes.get_theme_by_id(theme_id):
-                    raise HTTPNotFound(reason=f"Theme {theme_id} not found")
+                    raise HTTPNotFound(
+                        reason="Theme not found",
+                        text=json.dumps({
+                            "status": "not_found",
+                            "message": f"Theme {theme_id} not found",
+                            "data": {}
+                        })
+                    )
             except ValueError:
-                raise HTTPBadRequest(reason="Invalid theme_id format")
+                raise HTTPBadRequest(
+                    reason="Invalid theme_id",
+                    text=json.dumps({
+                        "status": "bad_request",
+                        "message": "theme_id must be integer",
+                        "data": {}
+                    })
+                )
 
         questions = await self.store.quizzes.list_questions(
             theme_id=theme_id if theme_id else None
